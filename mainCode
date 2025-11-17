@@ -1,0 +1,87 @@
+import random
+import smtplib
+from geopy.geocoders import Nominatim
+import geocoder
+from threading import Thread
+from pymongo.mongo_client import MongoClient
+from pymongo.server_api import ServerApi
+import re
+
+uri = "mongodb+srv://kumazon:9361878512@cluster0.phvppca.mongodb.net/?appName=Cluster0"
+client = MongoClient(uri)
+database = client.database
+dataStore = database.datastore
+
+s = smtplib.SMTP('smtp.gmail.com', 587)
+
+
+
+def emailverify (email):
+  try:
+    s.verify(email)
+    return True
+  except Exception:
+    return False
+  
+
+def getCurrLoc():
+  g = geocoder.ip('me')
+  geoLoc = Nominatim(user_agent="GetLoc")
+  locname = geoLoc.reverse(g.latlng)
+  return locname.address
+
+def emailMsg(gmail,message):
+    s.starttls()
+    s.login("kumazon59@gmail.com", "wpxx bgue tqii ytya")
+    s.sendmail("kumazon59@gmail.com", gmail,message)
+    s.quit()
+
+
+def idverfication(gmail):
+    if gmail == ""  or not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', gmail)  or    not emailverify(gmail) :
+        print("Email doesnt exist")
+        return False
+    OTP = random.randint(100000, 999999)
+    emailMsg(gmail,"OTP is "+ str(OTP))
+    getOTP = input("OTP : ")
+    if int(getOTP) == OTP :
+       return True
+    else :
+       print("Wrong OTP")
+       return False
+    
+def Login():
+  Gmail = input("Gmail :")
+  Password = input("Password :")
+  global tries 
+  tries = 3
+  def  askPassword (Password,dataTable):
+        global tries 
+        if Password != dataTable["password"]:
+          tries -=1 
+          if tries == 0 :
+              print("LOCKED OUT")
+              return 
+          Password = input("Retry :")
+          askPassword(Password,dataTable)
+        else:
+            loc = getCurrLoc()
+            msg1 = "A user has signed from this address -> "+loc
+            
+            thread = Thread(target =emailMsg, args = (Gmail,msg1))
+            thread.start()
+            print("ACCESS GRANTED")
+  dataTable = dataStore.find_one({"email": Gmail})
+  if dataTable == None :   
+      dataTable = {
+         "email" : Gmail,
+         "password" : Password
+      }
+      verified = idverfication(Gmail)
+      if verified:
+        dataStore.insert_one(dataTable)
+        print("ACCOUNT CREATED SUCCESSFULLY")
+        Login()
+  else:
+      askPassword(Password,dataTable)
+Login()
